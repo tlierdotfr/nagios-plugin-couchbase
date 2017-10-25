@@ -1,0 +1,322 @@
+#
+#
+# COUCHBASE CONNECTION
+#
+#
+
+# IP address or hostname of the Couchbase node to monitor
+couchbase_host: localhost
+
+# Admin username
+#  < Couchbase 5: recommended to use the Read-Only Administrator
+#  >= Couchbase 5: admin user with the the Data Monitoring role
+couchbase_user: readonly
+
+# Admin password
+couchbase_password: secret
+
+# Use SSL when talking to Couchbase
+# Must also use the correct port above
+couchbase_ssl: False
+
+# Override the default Couchbase ports
+#couchbase_admin_port: 8091
+#couchbase_admin_port_ssl: 18091
+
+#couchbase_query_port: 8093
+#couchbase_query_port_ssl: 18093
+
+#couchbase_fts_port: 8094
+#couchbase_fts_port: 18094
+
+
+#
+#
+# MONITOR CONNECTION
+#
+#
+
+# The type of monitoring system in use
+#  Options are:
+#   nagios
+#   graphite
+monitor_type: nagios
+
+# IP address or hostname of the monitor server
+monitor_host: localhost
+
+# Monitor service port
+#  If Nagios, defaults are:
+#   nsca: 5667
+#   nsca-ng: 5668
+#  If Graphite, default is:
+#    carbon: 2003
+monitor_port: 5668
+
+
+#
+#
+# NAGIOS CONFIGURATION 
+#
+#
+
+# Path to the send_nsca binary
+# Note that the user running this script must be able to read /etc/send_nsca.cfg
+nagios_nsca_path: /usr/sbin/send_nsca
+
+
+#
+#
+# SERVICE NAME
+#
+#
+#  These settings define how the service name should be constructed.
+#  The service name format will be:
+#   {prefix} {cluster name} {label} - {metric description}
+
+# Service prefix
+service_prefix: Couchbase
+
+# Include the cluster name in the service description
+service_include_cluster_name: True
+
+# Include the label in the service description
+#  Data service label is the bucket name
+#  Other services use the service name, e.g. "query" or "xdcr"
+service_include_label: True
+
+
+#
+#
+# METRICS AND THRESHOLDS
+#
+#
+#  Metrics are monitored by service: data, query, index, fts, xdcr, node
+#
+#  Metrics have 5 possible values:
+#  Required:
+#    metric: the Couchbase REST API metric to check
+#    description: used to construct the service name
+#  Optional:
+#    warn: the warning alert threshold
+#    crit: the critical alert threshold
+#    op: operator used to compare the current value against the thresholds
+#
+#  The statuses sent to the monitor are defined by the configured thresholds along
+#  with an implicit "OK".  Not specifying thresholds will result in "OK"
+#  always being sent to the monitor.
+#
+#  "op" allows you to define the operator used when evaluating thresholds
+#  againt the current value.  Options are: ">", ">=", "=", "<=", "<"
+#  The default operator is ">="
+
+# Data service
+#  Metrics are configurable by bucket, allowing thresholds to be customized.
+#
+#  The bucket name is specified by the "bucket" parameter.
+#
+#  Special name "_all" will evaluate the configured metrics and thresholds for
+#  all buckets
+#
+#  Metric names are documented here:
+#  https://github.com/couchbase/ep-engine/blob/master/docs/stats.org
+#
+#  The following calculated metrics have been added:
+#    percent_quota_utilization: mem_used / ep_mem_high_wat
+#    percent_metadata_utilization: ep_meta_data_memory / ep_mem_high_wat
+#    disk_write_queue: ep_queue_size + ep_flusher_todo
+#    total_ops: cmd_get + cmd_set + incr_misses + incr_hits + decr_misses + decr_hits + delete_misses + delete_hits
+data:
+  - bucket: _all
+    metrics:
+    - metric: percent_quota_utilization
+      description: percent bucket quota used
+      warn: 80
+      crit: 90 
+    - metric: percent_metadata_utilization
+      description: percent bucket quota used by metadata
+      warn: 10
+      crit: 20
+    - metric: disk_write_queue
+      description: items in disk write queue
+      warn: 10000
+      crit: 50000
+    - metric: total_ops
+      description: total ops per second
+      warn: 10000
+      crit: 20000
+    - metric: cmd_get
+      description: gets per second
+      warn: 5000
+      crit: 10000
+    - metric: cmd_set
+      description: sets per second
+      warn: 5000
+      crit: 10000
+    - metric: delete_hits
+      description: deletes per second
+      warn: 500
+      crit: 1000
+    - metric: ep_cache_miss_rate
+      description: cache miss ratio 
+      warn: 1
+      crit: 10
+    - metric: couch_docs_fragmentation
+      description: percent data fragmentation
+      warn: 35
+      crit: 50
+    - metric: couch_views_fragmentation
+      description: percent views fragmentation
+      warn: 35
+      crit: 50
+    - metric: curr_connections
+      description: client connections
+      warn: 500
+      crit: 1000  # Backoffs are sent at 10,0000 
+    - metric: ep_dcp_replica_items_remaining
+      description: items in internal replication queue
+      warn: 2500
+      crit: 5000
+    - metric: ep_dcp_2i_items_remaining
+      description: items in 2i indexer queue
+      warn: 5000
+      crit: 10000
+    - metric: ep_dcp_views_items_remaining
+      description: items in views indexer queue
+      warn: 5000
+      crit: 10000
+    - metric: ep_dcp_replica_backoff
+      description: internal replication backoffs
+      crit: 1
+    - metric: ep_dcp_xdcr_backoff
+      description: XDCR backoffs
+      crit: 1
+    - metric: vb_avg_total_queue_age
+      description: disk write queue average age
+      warn: 5
+      crit: 10
+    - metric: ep_oom_errors
+      description: out of memory errors
+      crit: 1
+    - metric: ep_tmp_oom_errors
+      description: temporary out of memory errors
+      crit: 1
+    - metric: vb_active_resident_items_ratio
+      description: percent active items in memory
+      warn: 50
+      crit: 15  # Should never be less than 15%
+      op: "<"
+    - metric: vb_replica_resident_items_ratio
+      description: percent replica items in memory
+      warn: 50
+      crit: 15  # Should never be less than 15%
+      op: "<"
+
+# Query service
+#  All metric names documented here (under Vitals):
+#  https://developer.couchbase.com/documentation/server/current/tools/query-monitoring.html
+query:
+  - metric: request_timer.75%
+    description: 75th percentile query response time
+    warn: 100  # Milliseconds
+    crit: 200  # Milliseconds
+  - metric: request_timer.95%
+    description: 95th percentile query response time
+    warn: 200  # Milliseconds
+    crit: 300  # Milliseconds
+  - metric: request_timer.99%
+    description: 99th percentile query response time
+    warn: 400  # Milliseconds
+    crit: 500  # Milliseconds
+  - metric: active_requests.count
+    description: active N1QL requests
+    warn: 1000
+    crit: 1500
+  - metric: request_rate.1m.rate
+    description: query throughput 1 minute
+    warn: 900
+    crit: 950
+  - metric: request_rate.5m.rate
+    description: query throughput 5 minute
+    warn: 800
+    crit: 850
+  - metric: request_rate.15m.rate
+    description: query throughput 15 minute
+    warn: 700
+    crit: 750
+
+# Full Text Search (FTS) service
+#  All metric names documented here (under Vitals):
+#  https://developer.couchbase.com/documentation/server/current/rest-api/rest-fts-indexing.html#topic_hpd_2y4_1v__g-api-stats
+#
+#  Note that these metrics will be applied to each FTS index independently
+fts:
+  - metric: num_mutations_to_index
+    description: items in FTS indexer queue
+    warn: 2000
+    crit: 5000
+#  - metric: total_queries_slow  # commented until a rate metric is available
+#    description: FTS slow searches  # queries that take longer than 5 seconds 
+#    warn: 100
+#    crit: 1000
+#  - metric: total_queries_timeout
+#    description: FTS search timeouts # commented until a rate metric is available
+#    warn: 100
+#    crit: 1000
+#  - metric: total_queries_error # commented until a rate metric is available
+#    description: FTS search errors 
+#    warn: 100
+#    crit: 1000
+
+# XDCR
+#  All metric names documented here:
+#  https://developer.couchbase.com/documentation/server/current/rest-api/rest-xdcr-statistics.html
+#
+#  Note that these metrics will be applied to each XDCR replication independently
+xdcr:
+  - metric: status
+    description: replication status
+    warn: paused
+    crit: notRunning
+    op: "="
+  - metric: changes_left
+    description: documents pending replication
+    warn: 2500
+    crit: 5000
+  - metric: bandwidth_usage
+    description: bytes replicated per second
+    warn: 12500000  # 100 Mbps
+    crit: 25000000  # 200 Mbps
+
+# Node Stats
+node:
+  - metric: status
+    description: health status
+    warn: warmup
+    crit: unhealthy
+    op: "="
+  - metric: clusterMembership
+    description: cluster membership
+    warn: inactiveAdded
+    crit: inactiveFailed
+    op: "="
+
+#
+#
+# PYTHON LOGGING
+#
+#
+logging:
+  version: 1
+  formatters:
+    simple:
+      format: "%(asctime)s %(levelname)s %(message)s"
+  handlers:
+    console:
+      class: logging.StreamHandler
+      level: ERROR
+      formatter: simple
+      stream: ext://sys.stdout
+  root:
+    level: DEBUG
+    handlers: [console]
