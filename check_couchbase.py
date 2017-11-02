@@ -85,6 +85,8 @@ def main():
         send_nagios(results, cluster_name, config)
     elif config["monitor_type"] == "graphite":
         send_graphite(results, cluster_name, config)
+    elif config["monitor_type"] == "stdout":
+        send_stdout(results, cluster_name, config)
     else:
         print("Unknown monitor_type configured.  No metrics have been sent.")
         sys.exit(2)
@@ -232,9 +234,6 @@ def build_service_description(description, cluster_name, label, config):
 
     if config["service_include_label"]:
         service += "{0}{1}".format(label, delimiter)
-
-    #if service != "":
-    #    service += " - "
 
     service += description
 
@@ -509,6 +508,24 @@ def send_graphite(results, cluster_name, config):
     sock.connect((config["monitor_host"], config["monitor_port"]))
     sock.sendall(message)
     sock.close()
+
+
+def send_stdout(results, cluster_name, config):
+    for result in results:
+        host = result["host"]
+        metric = result["metric"]
+        value = result["value"]
+        label = result["label"]
+
+        service = build_service_description(metric["description"], cluster_name, label, config).replace(" ", "-")
+
+        if config["dump_services"]:
+            print(service)
+            continue
+
+        line = "{0}.{1}.{2}.{3}.{4}: {5}".format(config["service_prefix"], cluster_name, host.replace(".", "-"), label.replace(" ", "-"), metric["description"].replace(" ", "-"), value)
+
+        print(line)
 
 
 if __name__ == "__main__":

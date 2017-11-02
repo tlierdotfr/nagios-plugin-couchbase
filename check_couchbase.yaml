@@ -72,7 +72,7 @@ nagios_nsca_path: /usr/sbin/send_nsca
 #
 #  These settings define how the service name should be constructed.
 #  The service name format will be:
-#   {prefix} {cluster name} {label} - {metric description}
+#   {prefix}.{cluster name}.{label} - {metric description}
 
 # Service prefix
 service_prefix: Couchbase
